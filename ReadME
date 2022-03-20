@@ -1,0 +1,1 @@
+change import path of App to App.jsx in "node_modules\expo\AppEntry.js"
