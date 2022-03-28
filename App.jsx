@@ -1,22 +1,28 @@
 import { useState, useEffect } from "react";
-import { StyleSheet, Text, View, TextInput, Button } from "react-native";
+import {
+  Text,
+  View,
+  Alert,
+  FlatList,
+  TextInput,
+  StyleSheet,
+  SafeAreaView,
+  TouchableOpacity,
+} from "react-native";
 
 //-----------------------------------------------> installed
 import * as SecureStore from "expo-secure-store";
 
 //-----------------------------------------------> custom components
-import Test from "./src/Test";
 import { axios } from "./src/utils";
+import { Task } from "./src/components";
 import { StatusBar } from "expo-status-bar";
 
 //-----------------------------------------------> default export
 export default function App() {
   const [res, setRes] = useState({});
-  const [input, setInput] = useState({
-    key: "",
-    value: "",
-  });
-  const [result, setResult] = useState("none");
+  const [todos, setTodos] = useState([]);
+  const [task, setTask] = useState("");
 
   //  request server, on load App component
   useEffect(() => {
@@ -26,7 +32,13 @@ export default function App() {
     const getRes = async () => {
       try {
         const res = await axios.get("/");
-        isMounted && setRes(res.data);
+        //get task from local storage
+        const savedTodos = await SecureStore.getItemAsync("todos");
+
+        if (isMounted) {
+          setRes(res.data);
+          setTodos(JSON.parse(savedTodos) || []);
+        }
       } catch (e) {
         console.log(e);
       }
@@ -39,76 +51,47 @@ export default function App() {
   }, []);
 
   //  save entered key value pair
-  const save = async (key, val) => {
+  const addTask = async () => {
     try {
-      await SecureStore.setItemAsync(key, val);
+      setTodos([...todos, { id: "", task: task, completed: false }]);
+      setTask("");
+
+      // save task to local storage
+      const stringifyTodos = JSON.stringify(todos);
+      await SecureStore.setItemAsync("todos", stringifyTodos);
     } catch (e) {
       console.log(e);
     }
-  };
-
-  //  get value of entered key
-  const getVal = async (key) => {
-    try {
-      const response = await SecureStore.getItemAsync(key);
-      setResult(response || "Invalid Key");
-    } catch (e) {
-      console.log(e);
-    }
-  };
-
-  //  on change input handler
-  const onChangeHandler = (name, value) => {
-    setInput({
-      ...input,
-      [name]: value,
-    });
   };
 
   //  returned component
   return (
-    <View style={styles.container}>
-      <Test />
-
-      {/* set key value pairs */}
-      <TextInput
-        style={styles.input}
-        placeholder="Enter key"
-        value={input.key}
-        onChangeText={(value) => onChangeHandler("key", value)}
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Enter value"
-        value={input.value}
-        onChangeText={(value) => onChangeHandler("value", value)}
-      />
-
-      <Button
-        title="save"
-        onPress={() => {
-          save(input.key, input.value);
-          setInput({ key: "", value: "" });
-        }}
-      />
-
-      {/* get value of entered key */}
-      <Text style={styles.h1}>Get Value</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Enter key"
-        onSubmitEditing={(e) => getVal(e.nativeEvent.text)}
-      />
+    <SafeAreaView style={styles.container}>
       <Text>
-        Value of Entered Key : <Text style={styles.result}>{result}</Text>{" "}
+        Response from server :
+        <Text style={{ fontWeight: "bold" }}> {res?.msg}</Text>
       </Text>
 
-      <Text>
-        Response from server : <Text style={styles.result}>{res?.msg}</Text>
-      </Text>
+      <View style={{ flex: 1 }}>
+        <View style={styles.taskViewer}>
+          <FlatList data={todos} renderItem={({ item }) => <Task />} />
+        </View>
+
+        <View style={styles.taskAdder}>
+          <TextInput
+            style={styles.taskInput}
+            value={task}
+            placeholder="Enter Task"
+            onChangeText={(text) => setTask(text)}
+          />
+
+          <TouchableOpacity style={styles.addBtn} onPress={addTask}>
+            <Text style={styles.btnText}>+</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
       <StatusBar style="auto" />
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -116,30 +99,39 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    marginHorizontal: "auto",
-    paddingHorizontal: 20,
-    backgroundColor: "#fff",
-    justifyContent: "center",
+    paddingTop: 40,
+    alignItems: "center",
   },
-  input: {
-    width: "100%",
-    height: 55,
-
-    marginHorizontal: "auto",
-    marginVertical: 20,
+  taskViewer: {
+    flex: 1,
+    minWidth: "100%",
+  },
+  taskAdder: {
+    flexDirection: "row",
+    alignItems: "center",
+    minWidth: "100%",
+    height: 60,
+    margin: 10,
     paddingHorizontal: 10,
-
-    borderRadius: 5,
-    borderWidth: 2,
-    borderColor: "black",
   },
-  h1: {
-    marginTop: 20,
-    marginHorizontal: "auto",
+  taskInput: {
+    flex: 1,
+    height: 50,
+    marginHorizontal: 10,
+    paddingHorizontal: 20,
+    borderRadius: 30,
+    backgroundColor: "#06BCEE",
+  },
+  addBtn: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 50,
+    height: 50,
+    borderRadius: 50,
+    backgroundColor: "#06BCEE",
+  },
+  btnText: {
     fontSize: 20,
-    fontWeight: "bold",
-  },
-  result: {
     fontWeight: "bold",
   },
 });
